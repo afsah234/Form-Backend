@@ -1,27 +1,56 @@
-import SocialLogin from "./components/SocialLogin";
-import InputField from "./components/InputField";
+import { useState } from "react";
 
-const App = () => {
-  return (
-    <div className="login-container">
-      <h2 className="form-title">Log in with</h2>
-      <SocialLogin />
+function App() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
-      <p className="separator"><span>or</span></p>
-
-      <form action="#" className="login-form">
-        <InputField type="email" placeholder="Email address" icon="mail" />
-        <InputField type="password" placeholder="Password" icon="lock" />
-
-        <a href="#" className="forgot-password-link">Forgot password?</a>
-        <button type="submit" className="login-button">Log In</button>
-      </form>
-
-      <p className="signup-prompt">
-        Don&apos;t have an account? <a href="#" className="signup-link">Sign up</a>
-      </p>
-    </div>
-  )
+    const handleLogin = async () => {
+      try {
+          console.log("Attempting login with:", email, password); // Debugging
+  
+          const response = await fetch("http://localhost:5000/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+          });
+  
+          console.log("Raw response:", response); // Debugging
+          const data = await response.json();
+          console.log("Response JSON:", data); // Debugging
+  
+          if (response.ok) {
+              alert("✅ Login successful!");
+          } else {
+              alert(`❌ ${data.message}`);
+          }
+      } catch (error) {
+          console.error("Login error:", error);
+          alert("Something went wrong!");
+      }
+  };
+  
+    return (
+        <div style={{ textAlign: "center", marginTop: "50px" }}>
+            <h2>Login</h2>
+            <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ display: "block", margin: "10px auto", padding: "10px" }}
+            />
+            <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ display: "block", margin: "10px auto", padding: "10px" }}
+            />
+            <button onClick={handleLogin} style={{ padding: "10px 20px", cursor: "pointer" }}>
+                Log In
+            </button>
+        </div>
+    );
 }
 
 export default App;
