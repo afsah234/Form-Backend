@@ -1,39 +1,94 @@
+require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
-const bodyParser = require("body-parser");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+const SECRET_KEY = process.env.JWT_SECRET || "supersecret";
 
 // Middleware
-app.use(cors()); // Enable CORS
-app.use(bodyParser.json()); // Parse JSON requests
+app.use(express.json());
+app.use(cors());
 
-// Dummy Users (Replace with a database)
-const users = [
-  { email: "test@example.com", password: "test123" },
-  { email: "afsahfarooqui234@gmail.com", password: "afsah123" }
-];
-  
-// Routes
-app.get("/", (req, res) => {
-    res.send("API is running...");
+// MongoDB Connection
+mongoose.connect("mongodb://127.0.0.1:27017/mydatabse", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
+
+// User Schema & Model
+const userSchema = new mongoose.Schema({
+  username: String,
+  email: String,
+  password: String,
 });
 
-// Login Route
-app.post("/login", (req, res) => {
+const User = mongoose.model("User", userSchema);
+
+// **Register Route**
+app.post("/register", async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ error: "User already exists" });
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save new user
+    const newUser = new User({ username, email, password: hashedPassword });
+    await newUser.save();
+
+    res.status(201).json({ message: "User registered successfully!" });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// **Login Route**
+app.post("/login", async (req, res) => {
+  try {
     const { email, password } = req.body;
 
-    const user = users.find(u => u.email === email && u.password === password);
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ error: "User not found" });
 
-    if (user) {
-        res.json({ message: "Login successful" });
-    } else {
-        res.status(401).json({ message: "Invalid email or password" });
-    }
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+
+    // Generate JWT Token
+    const token = jwt.sign({ id: user._id }, SECRET_KEY, { expiresIn: "1h" });
+
+    res.json({ message: "Login successful", token });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// **Protected Route**
+app.get("/users", async (req, res) => {
+  try {
+    const users = await User.find({}, { password: 0 }); // Exclude passwords
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// **Error Handling Middleware**
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
